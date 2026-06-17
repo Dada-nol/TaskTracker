@@ -1,6 +1,5 @@
+import { LABELS } from "@/constants";
 import { Difficulty } from "@/types";
-
-const LABELS: Record<Difficulty, string> = { easy: "Easy", normal: "Normal", hard: "Hard" };
 
 export function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
   return (

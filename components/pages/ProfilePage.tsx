@@ -1,11 +1,6 @@
 "use client";
-import { Category, UserProfile } from "@/types";
+import { Category, ProfilePageProps, UserProfile } from "@/types";
 import { XPBar } from "@/components/XPBar";
-
-interface ProfilePageProps {
-  profile: UserProfile;
-  categories: Category[];
-}
 
 function xpToNextLevel(level: number): number {
   return 500 * level;

@@ -3,8 +3,12 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
+import {
+  getCategories,
+  getOrCreateProfile,
+  resetDailyIfNeeded,
+} from "@/lib/db";
 import { Category, UserProfile, Page } from "@/types";
-import { getCategories, getOrCreateProfile } from "@/lib/db";
 import { Navbar } from "@/components/Navbar";
 import { Spinner } from "@/components/Spinner";
 import { HomePage } from "@/components/pages/HomePage";
@@ -27,8 +31,9 @@ export default function App() {
           getOrCreateProfile(),
           getCategories(),
         ]);
+        const freshCats = await resetDailyIfNeeded(cats);
         setProfile(prof);
-        setCategories(cats);
+        setCategories(freshCats);
       } catch (e: any) {
         setError(e.message ?? "Erreur de connexion à Supabase");
       } finally {

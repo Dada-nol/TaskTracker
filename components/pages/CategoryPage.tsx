@@ -6,7 +6,7 @@ import {
   Difficulty,
   TaskType,
   UserProfile,
-  DIFFICULTY_POINTS,
+  CategoryPageProps,
 } from "@/types";
 import { XPBar } from "@/components/XPBar";
 import { TaskItem } from "@/components/TaskItem";
@@ -18,15 +18,10 @@ import {
   completeTask,
   uncompleteTask,
   getTodayNotionChallenge,
+  resetDailyTasks,
 } from "@/lib/db";
 import { NotionPanel } from "@/components/NotionPanel";
-
-interface CategoryPageProps {
-  category: Category;
-  profile: UserProfile;
-  onCategoryUpdate: (cat: Category) => void;
-  onProfileUpdate: (profile: UserProfile) => void;
-}
+import { DIFFICULTY_POINTS } from "@/constants";
 
 export function CategoryPage({
   category,
@@ -51,6 +46,7 @@ export function CategoryPage({
   const loadTasks = useCallback(async () => {
     setLoadingTasks(true);
     try {
+      await resetDailyTasks(category.id);
       const [data, notionChallenge] = await Promise.all([
         getTasksByCategory(category.id),
         getTodayNotionChallenge(category.id),
@@ -256,7 +252,7 @@ export function CategoryPage({
                     onClick={() => setTaskType(t)}
                     className={`px-3 py-1.5 text-xs font-mono border ${taskType === t ? "bg-black text-white border-black" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}
                   >
-                    {t === "recurring" ? "Récurrent" : "Objectif"}
+                    {t === "recurring" ? "Récurrent" : "Ponctuel"}
                   </button>
                 ))}
               </div>
