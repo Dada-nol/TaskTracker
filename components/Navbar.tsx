@@ -60,7 +60,7 @@ export function Navbar({
                 : "text-gray-500 hover:text-black"
             }`}
           >
-            Historique
+            Dashboard
           </button>
         </div>
       </div>

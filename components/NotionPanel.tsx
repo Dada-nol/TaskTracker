@@ -1,34 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Task, UserProfile, Category } from "@/types";
+import {
+  Task,
+  UserProfile,
+  Category,
+  NotionRow,
+  Status,
+  NotionPanelProps,
+} from "@/types";
 import { createNotionDailyChallenge, getTodayNotionChallenge } from "@/lib/db";
-
-const STATUSES = ["Idée", "Script", "Tournée", "Montée", "Postée"] as const;
-type Status = (typeof STATUSES)[number];
-
-const STATUS_COLORS: Record<Status, string> = {
-  Idée: "bg-gray-100 text-gray-500",
-  Script: "bg-red-50 text-red-500",
-  Tournée: "bg-orange-50 text-orange-500",
-  Montée: "bg-yellow-50 text-yellow-600",
-  Postée: "bg-green-50 text-green-600",
-};
-
-const EFFORT_LABELS: Record<string, string> = {
-  Faible: "1pt",
-  Moyen: "2pt",
-  Élevé: "3pt",
-};
-
-interface NotionRow {
-  id: string;
-  title: string;
-  type: string;
-  effort: string;
-  status: Status;
-  note: string;
-  url: string;
-}
+import { EFFORT_LABELS, STATUS_COLORS, STATUSES } from "@/constants";
 
 function parseRow(page: any): NotionRow {
   const p = page.properties;
@@ -41,13 +22,6 @@ function parseRow(page: any): NotionRow {
     note: p["Note"]?.rich_text?.[0]?.plain_text ?? "",
     url: p["URL de la publication"]?.url ?? "",
   };
-}
-
-interface NotionPanelProps {
-  category: Category;
-  profile: UserProfile;
-  todayChallenge: Task | null;
-  onChallengeCreated: (task: Task) => void;
 }
 
 export function NotionPanel({
@@ -148,7 +122,8 @@ export function NotionPanel({
       <div className="border border-gray-100 divide-y divide-gray-100">
         {rows.map((row) => {
           const isAlreadyPicked = todayChallenge?.notion_page_id === row.id;
-          const canPick = !todayChallenge && !picking;
+          const canPick =
+            (!todayChallenge || todayChallenge.completed) && !picking;
 
           if (row.status === "Postée") return null;
 

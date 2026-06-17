@@ -9,7 +9,32 @@ const headers = {
   "Content-Type": "application/json",
 };
 
-export async function GET() {
+// export async function GET() {
+//   const res = await fetch(
+//     `https://api.notion.com/v1/databases/${DATABASE_ID}/query`,
+//     {
+//       method: "POST",
+//       headers,
+//       body: JSON.stringify({ page_size: 100 }),
+//     },
+//   );
+//   const data = await res.json();
+//   return NextResponse.json(data);
+// }
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const pageId = searchParams.get("pageId");
+
+  if (pageId) {
+    const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+      headers,
+    });
+    const data = await res.json();
+    return NextResponse.json(data);
+  }
+
+  // Comportement existant — query toute la base
   const res = await fetch(
     `https://api.notion.com/v1/databases/${DATABASE_ID}/query`,
     {
