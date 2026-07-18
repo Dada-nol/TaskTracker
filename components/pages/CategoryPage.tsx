@@ -285,9 +285,6 @@ export function CategoryPage({
           </div>
           {taskType === "goal" && (
             <div>
-              <p className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">
-                Deadline (optionnel)
-              </p>
               <input
                 type="date"
                 value={taskDeadline}
