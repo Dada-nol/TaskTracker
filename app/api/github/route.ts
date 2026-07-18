@@ -55,7 +55,13 @@ export async function GET() {
     const sinceStr = since.toISOString();
 
     // Récupérer les commits sur tous les repos en parallèle
-    const allCommits: CommitByDate[string] = [];
+    const allCommits: {
+      sha: string;
+      message: string;
+      repo: string;
+      date: string;
+      time: string;
+    }[] = [];
 
     await Promise.all(
       repos.map(async (repo: any) => {
