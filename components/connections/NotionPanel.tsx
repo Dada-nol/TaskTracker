@@ -8,7 +8,7 @@ import {
   Status,
   NotionPanelProps,
 } from "@/types";
-import { createNotionDailyChallenge, getTodayNotionChallenge } from "@/lib/db";
+import { createNotionTask, getTodayNotionTask } from "@/lib/db";
 import { EFFORT_LABELS, STATUS_COLORS, STATUSES } from "@/constants";
 
 function parseRow(page: any): NotionRow {
@@ -67,7 +67,7 @@ export function NotionPanel({
     if (todayChallenge) return;
     setPicking(row.id);
     try {
-      const task = await createNotionDailyChallenge(
+      const task = await createNotionTask(
         category.id,
         row.id,
         row.title,

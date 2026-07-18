@@ -17,11 +17,13 @@ import {
   deleteTask,
   completeTask,
   uncompleteTask,
-  getTodayNotionChallenge,
+  getTodayNotionTask,
   resetDailyTasks,
 } from "@/lib/db";
-import { NotionPanel } from "@/components/NotionPanel";
+import { NotionPanel } from "@/components/connections/NotionPanel";
 import { DIFFICULTY_POINTS } from "@/constants";
+import { IntegrationBlock } from "../connections/IntegrationBlock";
+import { GitHubPanel } from "@/components/connections/GitHubPanel";
 
 export function CategoryPage({
   category,
@@ -49,10 +51,10 @@ export function CategoryPage({
       await resetDailyTasks(category.id);
       const [data, notionChallenge] = await Promise.all([
         getTasksByCategory(category.id),
-        getTodayNotionChallenge(category.id),
+        getTodayNotionTask(category.id),
       ]);
       setTodayNotionChallenge(notionChallenge);
-      const withoutNotion = data.filter((t) => t.type !== "notion_daily");
+      const withoutNotion = data.filter((t) => t.source !== "notion");
       setTasks(
         notionChallenge ? [...withoutNotion, notionChallenge] : withoutNotion,
       );
@@ -151,8 +153,15 @@ export function CategoryPage({
   const remaining = category.daily_point_limit - category.points_used_today;
   const recurring = tasks.filter((t) => t.type === "recurring");
   const goals = tasks.filter((t) => t.type === "goal");
-  const notionTasks = tasks.filter((t) => t.type === "notion_daily");
+  const notionTasks = tasks.filter((t) => t.source === "notion");
   const completedCount = tasks.filter((t) => t.completed).length;
+
+  const integrationSuggestion = category.category_type ? (
+    <IntegrationBlock
+      categoryType={category.category_type}
+      hasNotion={!!todayNotionChallenge || category.category_type === "social"}
+    />
+  ) : null;
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -413,10 +422,26 @@ export function CategoryPage({
           onChallengeCreated={(task) => {
             setTodayNotionChallenge(task);
             setTasks((prev) => [
-              ...prev.filter((t) => t.type !== "notion_daily"),
+              ...prev.filter((t) => t.source !== "notion"),
               task,
             ]);
           }}
+        />
+      )}
+
+      {category.category_type && (
+        <IntegrationBlock
+          categoryType={category.category_type}
+          hasNotion={category.category_type === "social"}
+        />
+      )}
+
+      {category.category_type === "dev" && (
+        <GitHubPanel
+          category={category}
+          profile={profile}
+          onCategoryUpdate={onCategoryUpdate}
+          onProfileUpdate={onProfileUpdate}
         />
       )}
     </div>
