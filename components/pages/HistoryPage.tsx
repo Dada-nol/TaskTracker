@@ -456,16 +456,16 @@ export function HistoryPage({ categories }: HistoryPageProps) {
                             style={{ backgroundColor: color }}
                           />
                           <span className="text-sm font-mono flex-1 truncate">
-                            {c.title}
+                            {c.tasks?.title}
                           </span>
                           <span className="text-xs font-mono text-gray-400 hidden sm:block">
                             {cat?.name}
                           </span>
                           <span className="text-xs font-mono text-gray-400 border border-gray-100 px-1.5 py-0.5">
-                            {c.difficulty}
+                            {c.tasks?.difficulty}
                           </span>
                           <span className="text-xs font-mono text-gray-400">
-                            {c.point_cost}pt
+                            {c.tasks?.point_cost}pt
                           </span>
                           <span className="text-xs font-mono text-gray-300 flex-shrink-0">
                             {new Date(c.completed_at).toLocaleDateString(

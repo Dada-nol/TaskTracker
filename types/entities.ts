@@ -58,6 +58,12 @@ export interface TaskCompletion {
   category_id: string;
   task_id: string;
   completed_at: string;
+  tasks: {
+    title: string;
+    difficulty: Difficulty;
+    point_cost: number;
+    source: TaskSource;
+  } | null;
 }
 
 export interface DailySnapshot {
