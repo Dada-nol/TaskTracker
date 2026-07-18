@@ -41,7 +41,6 @@ export function CategoryPage({
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDifficulty, setTaskDifficulty] = useState<Difficulty>("easy");
   const [taskType, setTaskType] = useState<TaskType>("recurring");
-  const [taskDeadline, setTaskDeadline] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -125,13 +124,11 @@ export function CategoryPage({
         taskTitle.trim(),
         taskDifficulty,
         taskType,
-        taskType === "goal" && taskDeadline ? taskDeadline : null,
       );
       setTasks((prev) => [...prev, task]);
       setTaskTitle("");
       setTaskDifficulty("easy");
       setTaskType("recurring");
-      setTaskDeadline("");
       setShowForm(false);
     } catch (e: any) {
       setError(e.message);
@@ -152,7 +149,7 @@ export function CategoryPage({
 
   const remaining = category.daily_point_limit - category.points_used_today;
   const recurring = tasks.filter((t) => t.type === "recurring");
-  const goals = tasks.filter((t) => t.type === "goal");
+  const ponctuals = tasks.filter((t) => t.type === "ponctual");
   const notionTasks = tasks.filter((t) => t.source === "notion");
   const completedCount = tasks.filter((t) => t.completed).length;
 
@@ -255,7 +252,7 @@ export function CategoryPage({
                 Type
               </p>
               <div className="flex gap-2">
-                {(["recurring", "goal"] as TaskType[]).map((t) => (
+                {(["recurring", "ponctual"] as TaskType[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTaskType(t)}
@@ -283,16 +280,7 @@ export function CategoryPage({
               </div>
             </div>
           </div>
-          {taskType === "goal" && (
-            <div>
-              <input
-                type="date"
-                value={taskDeadline}
-                onChange={(e) => setTaskDeadline(e.target.value)}
-                className="border border-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:border-black"
-              />
-            </div>
-          )}
+
           <div className="flex gap-2">
             <button
               onClick={handleCreate}
@@ -357,16 +345,16 @@ export function CategoryPage({
               </p>
               <div className="flex-1 h-px bg-gray-100" />
               <span className="text-xs font-mono text-gray-300">
-                {goals.filter((t) => t.completed).length}/{goals.length}
+                {ponctuals.filter((t) => t.completed).length}/{ponctuals.length}
               </span>
             </div>
-            {goals.length === 0 ? (
+            {ponctuals.length === 0 ? (
               <p className="text-sm font-mono text-gray-300 py-4">
                 Aucun objectif ponctuel.
               </p>
             ) : (
               <div className="border border-gray-100 px-4">
-                {goals.map((task) => (
+                {ponctuals.map((task) => (
                   <TaskItem
                     key={task.id}
                     task={task}

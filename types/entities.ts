@@ -1,7 +1,7 @@
 import { STATUSES } from "@/constants/notion";
 
 export type Difficulty = "easy" | "normal" | "hard";
-export type TaskType = "recurring" | "goal";
+export type TaskType = "recurring" | "ponctual";
 export type TaskSource = "manual" | "notion" | "github" | "strava" | "fitbit";
 export type Page = "home" | "category" | "profile" | "history";
 export type Status = (typeof STATUSES)[number];

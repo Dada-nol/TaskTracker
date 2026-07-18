@@ -15,6 +15,7 @@ import {
   DailySnapshot,
   TaskCompletion,
   TaskSource_Entry,
+  TaskSource,
 } from "@/types";
 
 function db() {
@@ -151,6 +152,40 @@ export async function completeTask(
     .from("tasks")
     .update({ completed: true, completed_at: new Date().toISOString() })
     .eq("id", task.id);
+
+  if (task.source === "notion") {
+    const { data: taskSource } = await db()
+      .from("task_sources")
+      .select("external_id")
+      .eq("task_id", task.id)
+      .eq("source", "notion")
+      .maybeSingle();
+
+    if (taskSource) {
+      const nextStatusMap: Record<string, string> = {
+        Idée: "Script",
+        Script: "Tournée",
+        Tournée: "Montée",
+        Montée: "Postée",
+        Postée: "Postée",
+      };
+      const pageRes = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL}/api/notion?pageId=${taskSource.external_id}`,
+      );
+      const pageData = await pageRes.json();
+      const currentStatus = pageData.properties?.Status?.status?.name ?? "Idée";
+      const nextStatus = nextStatusMap[currentStatus] ?? "Script";
+
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/notion`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pageId: taskSource.external_id,
+          status: nextStatus,
+        }),
+      });
+    }
+  }
 
   const xpGain = task.point_cost * XP_PER_POINT;
   let newCatXP = category.xp + xpGain;

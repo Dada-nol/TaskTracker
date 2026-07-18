@@ -10,7 +10,7 @@ export function TaskItem({
   loading,
 }: TaskItemProps) {
   const isDisabled = (disabled && !task.completed) || loading;
-  const isOverdue = task.type === "goal" && !task.completed;
+  const isOverdue = task.type === "ponctual" && !task.completed;
 
   return (
     <div

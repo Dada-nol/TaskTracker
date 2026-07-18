@@ -121,7 +121,7 @@ export function NotionPanel({
 
       <div className="border border-gray-100 divide-y divide-gray-100">
         {rows.map((row) => {
-          const isAlreadyPicked = todayChallenge?.notion_page_id === row.id;
+          const isAlreadyPicked = todayChallenge?.id === row.id;
           const canPick =
             (!todayChallenge || todayChallenge.completed) && !picking;
 
