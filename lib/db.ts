@@ -7,12 +7,15 @@ import {
 import { getSupabase } from "./supabase";
 import {
   Category,
+  CategoryType,
   Task,
   UserProfile,
   Difficulty,
   TaskType,
   DailySnapshot,
   TaskCompletion,
+  TaskSource_Entry,
+  TaskSource,
 } from "@/types";
 
 function db() {
@@ -62,7 +65,8 @@ export async function getCategories(): Promise<Category[]> {
 
 export async function createCategory(
   name: string,
-  dailyPointLimit: number,
+  dailyPointLimit: number | null,
+  categoryType: CategoryType = null,
 ): Promise<Category> {
   const { data, error } = await db()
     .from("categories")
@@ -75,6 +79,7 @@ export async function createCategory(
       daily_point_limit: dailyPointLimit,
       points_used_today: 0,
       last_active_date: null,
+      category_type: categoryType,
     })
     .select()
     .single();
@@ -104,7 +109,7 @@ export async function createTask(
   title: string,
   difficulty: Difficulty,
   type: TaskType,
-  deadline: string | null,
+  source: TaskSource = "manual",
 ): Promise<Task> {
   const { data, error } = await db()
     .from("tasks")
@@ -114,7 +119,7 @@ export async function createTask(
       difficulty,
       type,
       point_cost: DIFFICULTY_POINTS[difficulty],
-      deadline,
+      source,
       completed: false,
       completed_at: null,
     })
@@ -148,26 +153,38 @@ export async function completeTask(
     .update({ completed: true, completed_at: new Date().toISOString() })
     .eq("id", task.id);
 
-  if (task.notion_page_id) {
-    const nextStatusMap: Record<string, string> = {
-      Idée: "Script",
-      Script: "Tournée",
-      Tournée: "Montée",
-      Montée: "Postée",
-      Postée: "Postée",
-    };
-    const pageRes = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/notion?pageId=${task.notion_page_id}`,
-    );
-    const pageData = await pageRes.json();
-    const currentStatus = pageData.properties?.Status?.status?.name ?? "Idée";
-    const nextStatus = nextStatusMap[currentStatus] ?? "Script";
+  if (task.source === "notion") {
+    const { data: taskSource } = await db()
+      .from("task_sources")
+      .select("external_id")
+      .eq("task_id", task.id)
+      .eq("source", "notion")
+      .maybeSingle();
 
-    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/notion`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pageId: task.notion_page_id, status: nextStatus }),
-    });
+    if (taskSource) {
+      const nextStatusMap: Record<string, string> = {
+        Idée: "Script",
+        Script: "Tournée",
+        Tournée: "Montée",
+        Montée: "Postée",
+        Postée: "Postée",
+      };
+      const pageRes = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL}/api/notion?pageId=${taskSource.external_id}`,
+      );
+      const pageData = await pageRes.json();
+      const currentStatus = pageData.properties?.Status?.status?.name ?? "Idée";
+      const nextStatus = nextStatusMap[currentStatus] ?? "Script";
+
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/notion`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pageId: taskSource.external_id,
+          status: nextStatus,
+        }),
+      });
+    }
   }
 
   const xpGain = task.point_cost * XP_PER_POINT;
@@ -231,10 +248,6 @@ export async function completeTask(
   await db().from("task_completions").insert({
     category_id: category.id,
     task_id: task.id,
-    title: task.title,
-    difficulty: task.difficulty,
-    point_cost: task.point_cost,
-    type: task.type,
   });
 
   let newProfileXP = profile.xp_total + xpGain;
@@ -295,9 +308,20 @@ export async function uncompleteTask(
   return { updatedCategory, updatedProfile };
 }
 
+export async function getTaskSource(
+  taskId: string,
+): Promise<TaskSource_Entry | null> {
+  const { data } = await db()
+    .from("task_sources")
+    .select("*")
+    .eq("task_id", taskId)
+    .maybeSingle();
+  return data ?? null;
+}
+
 // ─── Notion ───────────────────────────────────────────────────────────────────
 
-export async function getTodayNotionChallenge(
+export async function getTodayNotionTask(
   categoryId: string,
 ): Promise<Task | null> {
   const today = todayStr();
@@ -308,7 +332,8 @@ export async function getTodayNotionChallenge(
     .from("tasks")
     .select("*")
     .eq("category_id", categoryId)
-    .eq("type", "notion_daily")
+    .eq("source", "notion")
+    .eq("completed", false)
     .gte("created_at", todayStart)
     .lte("created_at", todayEnd)
     .order("created_at", { ascending: false })
@@ -317,7 +342,7 @@ export async function getTodayNotionChallenge(
   return data?.[0] ?? null;
 }
 
-export async function createNotionDailyChallenge(
+export async function createNotionTask(
   categoryId: string,
   notionPageId: string,
   title: string,
@@ -331,30 +356,182 @@ export async function createNotionDailyChallenge(
   const difficulty = difficultyMap[effort] ?? "easy";
   const todayStart = `${todayStr()}T00:00:00.000Z`;
 
-  await db()
+  // Nettoyer les anciennes tâches Notion d'avant aujourd'hui
+  const { data: oldTasks } = await db()
     .from("tasks")
-    .delete()
+    .select("id")
     .eq("category_id", categoryId)
-    .eq("type", "notion_daily")
+    .eq("source", "notion")
     .lt("created_at", todayStart);
 
-  const { data, error } = await db()
+  if (oldTasks && oldTasks.length > 0) {
+    await db()
+      .from("tasks")
+      .delete()
+      .in(
+        "id",
+        oldTasks.map((t: any) => t.id),
+      );
+  }
+
+  const { data: task, error } = await db()
     .from("tasks")
     .insert({
       category_id: categoryId,
       title,
       difficulty,
-      type: "notion_daily",
+      type: "recurring",
+      source: "notion",
       point_cost: DIFFICULTY_POINTS[difficulty],
-      deadline: null,
       completed: false,
       completed_at: null,
-      notion_page_id: notionPageId,
     })
     .select()
     .single();
   if (error) throw error;
-  return data;
+
+  await db().from("task_sources").insert({
+    task_id: task.id,
+    source: "notion",
+    external_id: notionPageId,
+    metadata: { title },
+  });
+
+  return task;
+}
+
+// ___ Github ______________________________
+
+export async function syncGitHubCommits(
+  categoryId: string,
+  category: Category,
+  profile: UserProfile,
+  commits: {
+    sha: string;
+    message: string;
+    repo: string;
+    date: string;
+    time: string;
+  }[],
+): Promise<{
+  updatedCategory: Category;
+  updatedProfile: UserProfile;
+  newCount: number;
+}> {
+  // Récupérer les shas déjà importés
+  const { data: existingSources } = await db()
+    .from("task_sources")
+    .select("external_id")
+    .eq("source", "github");
+
+  const existingShas = new Set(
+    (existingSources ?? []).map((s: any) => s.external_id),
+  );
+  const newCommits = commits.filter((c) => !existingShas.has(c.sha));
+
+  if (newCommits.length === 0) {
+    return { updatedCategory: category, updatedProfile: profile, newCount: 0 };
+  }
+
+  let currentCategory = category;
+  let currentProfile = profile;
+
+  for (const commit of newCommits) {
+    const pointsUsed = currentCategory.points_used_today + 1;
+    if (pointsUsed > currentCategory.daily_point_limit) break;
+
+    const { data: task, error } = await db()
+      .from("tasks")
+      .insert({
+        category_id: categoryId,
+        title: commit.message,
+        difficulty: "easy",
+        type: "recurring",
+        source: "github",
+        point_cost: 1,
+        completed: true,
+        completed_at: commit.time,
+      })
+      .select()
+      .single();
+    if (error) continue;
+
+    await db()
+      .from("task_sources")
+      .insert({
+        task_id: task.id,
+        source: "github",
+        external_id: commit.sha,
+        metadata: { repo: commit.repo, message: commit.message },
+      });
+
+    await db().from("task_completions").insert({
+      category_id: categoryId,
+      task_id: task.id,
+    });
+
+    const xpGain = 1 * XP_PER_POINT;
+    let newCatXP = currentCategory.xp + xpGain;
+    let newCatLevel = currentCategory.level;
+    let threshold = xpToNextLevel(newCatLevel);
+
+    while (newCatXP >= threshold) {
+      newCatXP -= threshold;
+      newCatLevel++;
+      threshold = xpToNextLevel(newCatLevel);
+    }
+
+    const today = todayStr();
+    const currentMonth = today.slice(0, 7);
+    let newActiveDays = currentCategory.active_days_this_month;
+    const isSameMonth = currentCategory.active_days_month === currentMonth;
+    const alreadyActiveToday = currentCategory.last_active_date === today;
+
+    if (!isSameMonth) newActiveDays = 1;
+    else if (!alreadyActiveToday) newActiveDays += 1;
+
+    const { data: updatedCat } = await db()
+      .from("categories")
+      .update({
+        xp: newCatXP,
+        xp_to_next_level: xpToNextLevel(newCatLevel),
+        level: newCatLevel,
+        points_used_today: pointsUsed,
+        active_days_this_month: newActiveDays,
+        active_days_month: currentMonth,
+        last_active_date: today,
+      })
+      .eq("id", categoryId)
+      .select()
+      .single();
+
+    if (updatedCat) currentCategory = updatedCat;
+
+    let newProfileXP = currentProfile.xp_total + xpGain;
+    let newProfileLevel = currentProfile.level;
+    let profileThreshold = xpToNextLevel(newProfileLevel);
+
+    while (newProfileXP >= profileThreshold) {
+      newProfileXP -= profileThreshold;
+      newProfileLevel++;
+      profileThreshold = xpToNextLevel(newProfileLevel);
+    }
+
+    const { data: updatedProf } = await db()
+      .from("user_profile")
+      .update({ xp_total: newProfileXP, level: newProfileLevel })
+      .eq("id", HARDCODED_USER_ID)
+      .select()
+      .single();
+
+    if (updatedProf) currentProfile = updatedProf;
+  }
+
+  return {
+    updatedCategory: currentCategory,
+    updatedProfile: currentProfile,
+    newCount: newCommits.length,
+  };
 }
 
 // ─── Reset journalier ─────────────────────────────────────────────────────────
@@ -416,7 +593,7 @@ export async function resetDailyTasks(categoryId: string): Promise<void> {
     .from("tasks")
     .delete()
     .eq("category_id", categoryId)
-    .eq("type", "notion_daily")
+    .eq("source", "notion")
     .lt("created_at", todayStart);
 }
 
@@ -449,7 +626,7 @@ export async function getCompletionsByPeriod(
 
   const { data, error } = await db()
     .from("task_completions")
-    .select("*")
+    .select("*, tasks(title, difficulty, point_cost, source)")
     .gte("completed_at", fromStr)
     .order("completed_at", { ascending: false });
   if (error) throw error;

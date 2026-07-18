@@ -10,11 +10,6 @@ export function TaskItem({
   loading,
 }: TaskItemProps) {
   const isDisabled = (disabled && !task.completed) || loading;
-  const isOverdue =
-    task.type === "goal" &&
-    !task.completed &&
-    task.deadline &&
-    new Date(task.deadline) < new Date();
 
   return (
     <div
@@ -41,14 +36,6 @@ export function TaskItem({
           <span className="text-xs font-mono text-gray-400">
             {task.point_cost}pt
           </span>
-          {task.deadline && (
-            <span
-              className={`text-xs font-mono ${isOverdue ? "text-black font-bold" : "text-gray-400"}`}
-            >
-              {isOverdue ? "⚠ " : ""}
-              {new Date(task.deadline).toLocaleDateString("fr-FR")}
-            </span>
-          )}
         </div>
       </div>
       <button

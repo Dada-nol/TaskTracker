@@ -17,11 +17,13 @@ import {
   deleteTask,
   completeTask,
   uncompleteTask,
-  getTodayNotionChallenge,
+  getTodayNotionTask,
   resetDailyTasks,
 } from "@/lib/db";
-import { NotionPanel } from "@/components/NotionPanel";
+import { NotionPanel } from "@/components/connections/NotionPanel";
 import { DIFFICULTY_POINTS } from "@/constants";
+import { IntegrationBlock } from "../connections/IntegrationBlock";
+import { GitHubPanel } from "@/components/connections/GitHubPanel";
 
 export function CategoryPage({
   category,
@@ -39,7 +41,6 @@ export function CategoryPage({
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDifficulty, setTaskDifficulty] = useState<Difficulty>("easy");
   const [taskType, setTaskType] = useState<TaskType>("recurring");
-  const [taskDeadline, setTaskDeadline] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,10 +50,10 @@ export function CategoryPage({
       await resetDailyTasks(category.id);
       const [data, notionChallenge] = await Promise.all([
         getTasksByCategory(category.id),
-        getTodayNotionChallenge(category.id),
+        getTodayNotionTask(category.id),
       ]);
       setTodayNotionChallenge(notionChallenge);
-      const withoutNotion = data.filter((t) => t.type !== "notion_daily");
+      const withoutNotion = data.filter((t) => t.source !== "notion");
       setTasks(
         notionChallenge ? [...withoutNotion, notionChallenge] : withoutNotion,
       );
@@ -123,13 +124,11 @@ export function CategoryPage({
         taskTitle.trim(),
         taskDifficulty,
         taskType,
-        taskType === "goal" && taskDeadline ? taskDeadline : null,
       );
       setTasks((prev) => [...prev, task]);
       setTaskTitle("");
       setTaskDifficulty("easy");
       setTaskType("recurring");
-      setTaskDeadline("");
       setShowForm(false);
     } catch (e: any) {
       setError(e.message);
@@ -150,9 +149,16 @@ export function CategoryPage({
 
   const remaining = category.daily_point_limit - category.points_used_today;
   const recurring = tasks.filter((t) => t.type === "recurring");
-  const goals = tasks.filter((t) => t.type === "goal");
-  const notionTasks = tasks.filter((t) => t.type === "notion_daily");
+  const ponctuals = tasks.filter((t) => t.type === "ponctual");
+  const notionTasks = tasks.filter((t) => t.source === "notion");
   const completedCount = tasks.filter((t) => t.completed).length;
+
+  const integrationSuggestion = category.category_type ? (
+    <IntegrationBlock
+      categoryType={category.category_type}
+      hasNotion={!!todayNotionChallenge || category.category_type === "social"}
+    />
+  ) : null;
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -246,7 +252,7 @@ export function CategoryPage({
                 Type
               </p>
               <div className="flex gap-2">
-                {(["recurring", "goal"] as TaskType[]).map((t) => (
+                {(["recurring", "ponctual"] as TaskType[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTaskType(t)}
@@ -274,19 +280,7 @@ export function CategoryPage({
               </div>
             </div>
           </div>
-          {taskType === "goal" && (
-            <div>
-              <p className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">
-                Deadline (optionnel)
-              </p>
-              <input
-                type="date"
-                value={taskDeadline}
-                onChange={(e) => setTaskDeadline(e.target.value)}
-                className="border border-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:border-black"
-              />
-            </div>
-          )}
+
           <div className="flex gap-2">
             <button
               onClick={handleCreate}
@@ -351,16 +345,16 @@ export function CategoryPage({
               </p>
               <div className="flex-1 h-px bg-gray-100" />
               <span className="text-xs font-mono text-gray-300">
-                {goals.filter((t) => t.completed).length}/{goals.length}
+                {ponctuals.filter((t) => t.completed).length}/{ponctuals.length}
               </span>
             </div>
-            {goals.length === 0 ? (
+            {ponctuals.length === 0 ? (
               <p className="text-sm font-mono text-gray-300 py-4">
                 Aucun objectif ponctuel.
               </p>
             ) : (
               <div className="border border-gray-100 px-4">
-                {goals.map((task) => (
+                {ponctuals.map((task) => (
                   <TaskItem
                     key={task.id}
                     task={task}
@@ -413,10 +407,26 @@ export function CategoryPage({
           onChallengeCreated={(task) => {
             setTodayNotionChallenge(task);
             setTasks((prev) => [
-              ...prev.filter((t) => t.type !== "notion_daily"),
+              ...prev.filter((t) => t.source !== "notion"),
               task,
             ]);
           }}
+        />
+      )}
+
+      {category.category_type && (
+        <IntegrationBlock
+          categoryType={category.category_type}
+          hasNotion={category.category_type === "social"}
+        />
+      )}
+
+      {category.category_type === "dev" && (
+        <GitHubPanel
+          category={category}
+          profile={profile}
+          onCategoryUpdate={onCategoryUpdate}
+          onProfileUpdate={onProfileUpdate}
         />
       )}
     </div>

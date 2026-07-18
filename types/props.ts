@@ -42,3 +42,24 @@ export interface CategoryPageProps {
   onCategoryUpdate: (cat: Category) => void;
   onProfileUpdate: (profile: UserProfile) => void;
 }
+
+export interface CategoryCardProps {
+  category: Category;
+  onNavigateToCategory: (cat: Category) => void;
+  handleDelete: (
+    id: Category["id"],
+    e: React.MouseEvent<HTMLButtonElement>,
+  ) => void;
+  remaining: number;
+}
+
+export interface CategoryFormProps {
+  error: string | null;
+  name: string;
+  setName: (value: string) => void;
+  handleCreate: (name: string, limit: number) => void;
+  limit: number;
+  setLimit: (value: number) => void;
+  loading: boolean;
+  setShowForm: (value: boolean) => void;
+}
