@@ -25,7 +25,8 @@ export function IntegrationBlock({
       </div>
       <div className="space-y-3">
         {suggested.integrations.map((integ) => {
-          const isConnected = integ.id === "notion" && hasNotion;
+          const isConnected =
+            (integ.id === "notion" && hasNotion) || integ.id === "github";
           const isAvailable = integ.id === "notion";
 
           return (
