@@ -418,7 +418,6 @@ export async function syncGitHubCommits(
   updatedProfile: UserProfile;
   newCount: number;
 }> {
-  // Récupérer les shas déjà importés
   const { data: existingSources } = await db()
     .from("task_sources")
     .select("external_id")
@@ -437,8 +436,12 @@ export async function syncGitHubCommits(
   let currentProfile = profile;
 
   for (const commit of newCommits) {
-    const pointsUsed = currentCategory.points_used_today + 1;
-    if (pointsUsed > currentCategory.daily_point_limit) break;
+    const today = todayStr();
+    const isToday = commit.date === today;
+    const pointsUsed = isToday
+      ? currentCategory.points_used_today + 1
+      : currentCategory.points_used_today;
+    if (isToday && pointsUsed > currentCategory.daily_point_limit) continue;
 
     const { data: task, error } = await db()
       .from("tasks")
@@ -481,7 +484,6 @@ export async function syncGitHubCommits(
       threshold = xpToNextLevel(newCatLevel);
     }
 
-    const today = todayStr();
     const currentMonth = today.slice(0, 7);
     let newActiveDays = currentCategory.active_days_this_month;
     const isSameMonth = currentCategory.active_days_month === currentMonth;
@@ -496,10 +498,12 @@ export async function syncGitHubCommits(
         xp: newCatXP,
         xp_to_next_level: xpToNextLevel(newCatLevel),
         level: newCatLevel,
-        points_used_today: pointsUsed,
+        points_used_today: isToday
+          ? pointsUsed
+          : currentCategory.points_used_today,
         active_days_this_month: newActiveDays,
         active_days_month: currentMonth,
-        last_active_date: today,
+        last_active_date: isToday ? today : currentCategory.last_active_date,
       })
       .eq("id", categoryId)
       .select()
@@ -626,7 +630,7 @@ export async function getCompletionsByPeriod(
 
   const { data, error } = await db()
     .from("task_completions")
-    .select("*, tasks(title, difficulty, point_cost, source)")
+    .select("*, tasks(title, difficulty, point_cost, source)t")
     .gte("completed_at", fromStr)
     .order("completed_at", { ascending: false });
   if (error) throw error;
