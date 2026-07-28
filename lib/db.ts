@@ -630,7 +630,7 @@ export async function getCompletionsByPeriod(
 
   const { data, error } = await db()
     .from("task_completions")
-    .select("*, tasks(title, difficulty, point_cost, source)t")
+    .select("*, tasks(title, difficulty, point_cost, source)")
     .gte("completed_at", fromStr)
     .order("completed_at", { ascending: false });
   if (error) throw error;
